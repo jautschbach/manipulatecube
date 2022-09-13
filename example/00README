@@ -1,0 +1,8 @@
+run 
+
+../manipulatecube density.cube fac 1.0
+
+to see a list of isovalues and corresponding density integration threshold
+
+density.cube is the square of the ethene pi MO, generated with the 
+'mul' command of manipulatecube
