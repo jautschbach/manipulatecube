@@ -20,8 +20,8 @@ OMP =
 FOPT = -g -Wall -fbounds-check -fbacktrace -ffpe-trap=zero,overflow,underflow # gfortran 
 
 ### Extra libraries
-FLIB=-llapack
-#FLIB = 
+FLIB=-llapack   # use this line if you have Lapack libraries installed
+#FLIB =         # use this line if you're using source code for DLASRT
 
 FFLAGS = $(OMP)
 
@@ -29,7 +29,8 @@ FFLAGS = $(OMP)
 
 BIN = manipulatecube
 
-OBJ = 
+OBJ =      # use this line if you have Lapack libraries installed
+#OBJ = xerbla.o lsame.o dlasrt.o # use this when using source code for DLASRT
 
 OBJ90 = types.o 
 
