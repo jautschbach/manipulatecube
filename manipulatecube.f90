@@ -43,7 +43,7 @@ program cubcub
   
   if ( narg .lt. 2 .or. narg .gt. 4 ) then
     stop &
-      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac cubfile2|factor [angle]' 
+      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/dmp cubfile2|factor [angle]' 
   end if
   
   call getarg(1,arg1)
@@ -158,7 +158,8 @@ program cubcub
   if (math .eq. 'mix' .or. math .eq. 'rot') then
     res1 = 'results1.cube'
     res2 = 'results2.cube'
-  else if (math .eq. 'fac') then
+  else if (math .eq. 'fac' .or. math .eq. 'mul' & 
+    & .or. math .eq. 'add' .or. math .eq. 'sub') then
     res1 = 'results.cube'
     res2 = ''
   else
