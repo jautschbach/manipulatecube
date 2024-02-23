@@ -1,8 +1,9 @@
 program cubcub
   
   ! manipulates Gaussian cube files
-  ! (c) copyright Jochen Autschbach (2020-22)
-  ! all rights reserved
+  ! (c) copyright Jochen Autschbach
+  ! all rights reserved, no liabilities assumed
+  ! see file LICENSE that comes with this software
   
   
   use types
@@ -25,7 +26,9 @@ program cubcub
   
   real(KREAL), parameter :: one=1.0d0,sq2=sqrt(2.0d0),sq2m1=one/sq2, &
     eight=8.0d0,twopi=eight*atan(one),radians=twopi/360.0d0,zero=0.0d0,&
-    p005=0.05d0, small=1d-3
+    p005=0.05d0, small=1.0d-3, tiny=1.0d-8
+
+  integer(KINT) :: order(3), reorder(3)
   
   real(KREAL), allocatable :: xyznuc(:,:), cubvalue1(:,:,:), &
     cubvalue2(:,:,:), qtch(:)
@@ -38,12 +41,13 @@ program cubcub
 !!$  character(3) :: symbol(0:nelmnt)
   
   ! ==========================================================================
+  
   !Read Input from user 
   narg = iargc()
   
   if ( narg .lt. 2 .or. narg .gt. 4 ) then
     stop &
-      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/dmp cubfile2|factor [angle]' 
+      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/dmp/fix cubfile2|factor [angle]' 
   end if
   
   call getarg(1,arg1)
@@ -57,10 +61,11 @@ program cubcub
   read(arg2,*,iostat=ios) math
   if (ios /= 0) stop 'error reading arg2'
   !write (out,*) math
-  if ( (math .eq. 'add') .or. (math .eq. 'sub') .or. &
+  if (  &
+    (math .eq. 'add') .or. (math .eq. 'sub') .or. &
     (math .eq. 'mix') .or. (math .eq. 'mul') .or. &
     (math .eq. 'fac') .or. (math .eq. 'rot') .or. &
-    (math .eq. 'dmp')) then
+    (math .eq. 'dmp') .or. (math .eq. 'fix') ) then
     write (out,*) 'will perform operation: ',math
   else
     stop 'arg2: unrecognized option'
@@ -103,9 +108,9 @@ program cubcub
   
   
   ! check the options and see if we need to read a second cube file.
-  ! if so, red header 
+  ! if so, read header 
   
-  if (math /= 'fac' .and. math /= 'dmp') then
+  if (math /= 'fac' .and. math /= 'dmp' .and. math /= 'fix') then
     
     ios = 0
     read(arg3,*,iostat=ios) cubfile2
@@ -153,7 +158,7 @@ program cubcub
     
   end if
   
-  ! create output cube and write header
+  ! create empty output cube file
   
   if (math .eq. 'mix' .or. math .eq. 'rot') then
     res1 = 'results1.cube'
@@ -162,6 +167,8 @@ program cubcub
     & .or. math .eq. 'add' .or. math .eq. 'sub') then
     res1 = 'results.cube'
     res2 = ''
+  else if (math .eq. 'fix') then
+    res1 = 'fixed.cube'
   else
     res1 = 'data.txt'
     res2 = ''
@@ -171,11 +178,9 @@ program cubcub
   ios = 0
   open (cub1, file=trim(res1), status='unknown', iostat=ios)
   if (ios /= 0) then
-    write (err,*) 'error creating or openinng file '//trim(res1)
+    write (err,*) 'error creating or opening file '//trim(res1)
     stop 'error termination'
   end if
-  
-  if (math /= 'dmp') call write_cube_header (cub1)
   
   ! create second output cube if needed
   
@@ -188,8 +193,6 @@ program cubcub
       stop 'error termination'
     end if
     
-    call write_cube_header (cub2)  
-    
   end if
   
   
@@ -197,67 +200,90 @@ program cubcub
   
   allocate (output(npts(1),npts(2),npts(3)))
   
-  output=0
+  output = zero
   
-  select case (math)
+  math_select: select case (math)
+  
   case ('add')
-    !Deal with Addition
+    
+    ! add the data sets from two cube files
+    
     write (out,*) 'Adding cube files'
     output = cubvalue1 + cubvalue2
     
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
   case ('sub')
-    !Deal with Subtraction
+    
+    ! subtract the data sets from two cube files
+    
     write (out,*) 'Subtracting cube files'
     output = cubvalue1 - cubvalue2
-    
+
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
   case ('mul')
-    !Deal with multiplication
+    
+    ! multiply the data sets from two cube files
+    ! (if the same cube is given twice, we square it to get the density)
+    
     write (out,*) 'Multiplying cube files'
     output = cubvalue1 * cubvalue2
-    
+
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
   case ('mix')
-    !Deal with mixing
+    
+    ! create (1/sqrt(2)) +/- linear combinations of the cubes
+    ! (special case of 'rot' with 45 degree angle)
+    
     write (out,*) 'Mixing cube files'
     
     output = cubvalue1 + cubvalue2
     output = sq2m1 * output
-    
+
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
     output = cubvalue1 - cubvalue2
     output = sq2m1 * output
-    
+
+    call write_cube_header (cub2)
     call write_data(cub2,err,res2,npts,output)
     
   case ('rot')
-    !Deal with rotation
-    write (out,'(1x,a,f8.2,a,f8.2,a)') 'Rotating cube files by angle ',alpha, &
+    
+    ! perform 2x2 rotation in orbital space
+    
+    write (out,'(1x,a,f8.2,a,f8.2,a)') 'Rotating cube data by angle ',alpha, &
       ' degrees or ', alpha*radians,' radians'
+    write (out,*) '(note: this is not a real-space rotation)'
     
     !write(out,*) twopi, radians
     alpha = alpha * radians
     !write(out,*) cos(alpha), sin(alpha),sq2m1
     
     output = cos(alpha)*cubvalue1 + sin(alpha)*cubvalue2
-    
+
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
     output = -one*sin(alpha)*cubvalue1 +cos(alpha)*cubvalue2
-    
+
+    call write_cube_header (cub2)
     call write_data(cub2,err,res2,npts,output)
     
   case ('fac')
-    !Deal with multiplication by a factor
+    
+    ! multiply cube data by a constant factor
     write (out,*) 'Multiplying cube file with a factor of ',facmul
     
     output = cubvalue1 * facmul
-    
+
+    call write_cube_header (cub1)
     call write_data(cub1,err,res1,npts,output)
     
     ! let's also take the integral of the cube, since it's easy to do here
@@ -265,8 +291,8 @@ program cubcub
     rint = sum(cubvalue1) * dV
     write (out,*) 'Volume Integral of the cube: ',rint
     
-    ! ... and another hack: if the cube integral is not zero, we assume it is
-    ! a density and determine what isosurface value contains what fraction of
+    ! if the cube integral is not zero, we assume it is a density and
+    ! determine what isosurface value contains what fraction of
     ! density
     
     if (rint>small) then
@@ -295,8 +321,7 @@ program cubcub
           stop 'sorting error in quicksort'
         endif
       enddo
-      
-      
+           
       thresh = p005
       rint = zero
       do i = ngrid, 1, -1
@@ -311,15 +336,147 @@ program cubcub
       deallocate(points)
       
     end if  ! cube integral > 0
+
+  case ('fix')
+
+    ! fix a non-standard grid to make it ordered x, y, z
+    ! we will not change negative step sizes and hope this works.
+    ! fix function does not work for grid vectors that aren't along
+    ! x, y, z, already, but we can fix cases where the step size is
+    ! negative (some visualization software doesn't like that)
+
+    ! check whether the vectors have more than one sizable component,
+    ! which would indicate a non-Cartesian grid:
+
+    do i = 1,3
+      k = 0
+      do j = 1,3
+        if (abs(vectr(j,i)).gt.tiny) k = k+1
+      end do
+      if (k /= 1) then
+        write (out,*) 'fix: i,k', i,k
+        write (out,*) 'grid vectors appear to be non-Cartesian. Cannot fix.'
+        write (out,*) 'You may delete file fixed.cube'
+        exit math_select
+      end if
+    end do ! i
+
+    ! if we're still going, the grid is Cartesian but maybe
+    ! not in the order x, y, z.
+
+    write (out,*) &
+      'fix: grid vectors appear to be Cartesian but are perhaps not ordered'
+    write (out,*) &
+    '     as x, y, z or go in negative direction. Will attempt to fix this.'
+
+    ! determine the order of grid vectors and make sure we're having the
+    ! values 1, 2, 3 in the array in some permutation
+
+    order(1) = maxloc(abs(vectr(:,1)),1)
+    order(2) = maxloc(abs(vectr(:,2)),1)
+    order(3) = maxloc(abs(vectr(:,3)),1)
+    write (out,*) 'ordering    = ', order
+
+    if (any(order==0 .or. order.lt.1 .or. order.gt.3)) then
+      write (out,*) 'order array out of bounds. Aborting'
+      write (out,*) 'You may delete file fixed.cube'
+      exit math_select
+    end if
+
+    if (.not.any(order==1) .or. .not.any(order==2) .or. &
+      .not.any(order==3)) then
+      write (out,*) 'order array does not contain values 1, 2, 3. Aborting'
+      write (out,*) 'You may delete file fixed.cube'
+      exit math_select
+    end if
+
+    ! determine the array to re-order the data and check that it
+    ! has the correct values 1, 2, 3 in any order
+
+    reorder = 0
+    reorder(1) = findloc(order,1,1)
+    reorder(2) = findloc(order,2,1)
+    reorder(3) = findloc(order,3,1)
+
+    write (out,*) 're-ordering = ', reorder
+
+    if (any(reorder==0 .or. reorder.lt.1 .or. reorder.gt.3)) then
+      write (out,*) 'reorder array out of bounds. Aborting'
+      write (out,*) 'You may delete file fixed.cube'
+      exit math_select
+    end if
+
+    if (.not.any(reorder==1) .or. .not.any(reorder==2) .or. &
+      .not.any(reorder==3)) then
+      write (out,*) 'reorder array does not contain values 1, 2, 3. Aborting'
+      write (out,*) 'You may delete file fixed.cube'
+      exit math_select
+    end if
+
+    ! reorder the grid specs (but not startp)
+    
+    startp2 = startp
+    vectr2 = vectr
+    npts2 = npts
+
+    do i = 1,3
+      npts(i) = npts2(reorder(i))
+      vectr(:,i) = vectr2(:,reorder(i))
+    end do
+
+    ! reorder the data array
+
+    deallocate(output)
+    allocate(output(npts(1), npts(2), npts(3)))
+
+    output = reshape(cubvalue1, &
+      [npts(1), npts(2), npts(3)], & 
+      order = [order(1), order(2), order(3)] )
+
+    ! finally, if the step sizes in any of the directions are
+    ! negative, we can now adjust for that
+
+    deallocate(cubvalue1)
+    allocate(cubvalue1(npts(1), npts(2), npts(3)))
+    
+    cubvalue1 = output
+
+    if (vectr(1,1) < 0) then
+      startp(1) = startp2(1) + vectr(1,1) * (npts(1) -1)
+      vectr(1,1) = -vectr(1,1)
+      do i = 1,npts(1)
+        output(npts(1)-i+1,:,:) = cubvalue1(i,:,:)
+      end do
+    end if
+
+    if (vectr(2,2) < 0) then
+      startp(2) = startp2(2) + vectr(2,2) * (npts(2) -1)
+      vectr(2,2) = -vectr(2,2)
+      do i = 1,npts(2)
+        output(:,npts(2)-i+1,:) = cubvalue1(:,i,:)
+      end do
+    end if
+
+    if (vectr(3,3) < 0) then
+      startp(3) = startp2(3) + vectr(3,3) * (npts(3) -1)
+      vectr(3,3) = -vectr(3,3)
+      do i = 1,npts(3)
+        output(:,:,npts(3)-i+1) = cubvalue1(:,:,i)
+      end do
+    end if
+
+    call write_cube_header(cub1)
+    call write_data(cub1,err,res1,npts,output)
+    
     
   case ('dmp')
-    ! dump the data to a file to be read by Mathematica
+    ! dump the data to a file to be read by some external software
     write (out,*) 'Dumping data set'
     output = cubvalue1
     call dump_data(cub1,err,res1,npts,output,startp, &
       vectr(:,1), vectr(:,2), vectr(:,3))
     
-  end select
+  end select math_select
   
   
   ! all done. Clean up, and exit gracefully
@@ -328,7 +485,8 @@ program cubcub
   if (math.eq.'mix') close (cub2, status='keep')
   
   deallocate(cubvalue1, output, nuctyp, xyznuc, qtch)
-  if (math /= 'fac' .and. math /= 'dmp') deallocate (cubvalue2)
+  
+  if (allocated(cubvalue2)) deallocate (cubvalue2)
   
   stop 'normal termination'
   
@@ -394,7 +552,7 @@ contains
     fmt='(i5,3(f12.6))'
     !Write Header
     write (iu,*) '1'
-    write (iu,*) 'Total Density'
+    write (iu,*) 'Data Set'
     write (iu,trim(fmt)) nnuc, startp(1), startp(2), startp(3)
     write (iu,trim(fmt)) npts(1), vectr(1,1), vectr(2,1), vectr(3,1)
     write (iu,trim(fmt)) npts(2), vectr(1,2), vectr(2,2), vectr(3,2)
