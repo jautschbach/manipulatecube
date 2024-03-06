@@ -211,7 +211,7 @@ program cubcub
     write (out,*) 'Adding cube files'
     output = cubvalue1 + cubvalue2
     
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results', 'addition of cubes')
     call write_data(cub1,err,res1,npts,output)
     
   case ('sub')
@@ -221,7 +221,8 @@ program cubcub
     write (out,*) 'Subtracting cube files'
     output = cubvalue1 - cubvalue2
 
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results', &
+      'subtraction of cubes')
     call write_data(cub1,err,res1,npts,output)
     
   case ('mul')
@@ -232,7 +233,8 @@ program cubcub
     write (out,*) 'Multiplying cube files'
     output = cubvalue1 * cubvalue2
 
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results', &
+      'multiplication of cubes')
     call write_data(cub1,err,res1,npts,output)
     
   case ('mix')
@@ -245,13 +247,13 @@ program cubcub
     output = cubvalue1 + cubvalue2
     output = sq2m1 * output
 
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results 1', 'mixing of cubes')
     call write_data(cub1,err,res1,npts,output)
     
     output = cubvalue1 - cubvalue2
     output = sq2m1 * output
 
-    call write_cube_header (cub2)
+    call write_cube_header (cub2, 'manipulatecube results 2', 'mixing of cubes')
     call write_data(cub2,err,res2,npts,output)
     
   case ('rot')
@@ -268,12 +270,14 @@ program cubcub
     
     output = cos(alpha)*cubvalue1 + sin(alpha)*cubvalue2
 
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results 1', &
+      '''rotation'' of cubes')
     call write_data(cub1,err,res1,npts,output)
     
     output = -one*sin(alpha)*cubvalue1 +cos(alpha)*cubvalue2
 
-    call write_cube_header (cub2)
+    call write_cube_header (cub2, 'manipulatecube results 2', &
+      '''rotation'' of cubes')
     call write_data(cub2,err,res2,npts,output)
     
   case ('fac')
@@ -283,7 +287,8 @@ program cubcub
     
     output = cubvalue1 * facmul
 
-    call write_cube_header (cub1)
+    call write_cube_header (cub1, 'manipulatecube results', &
+      ' multiply cube with factor')
     call write_data(cub1,err,res1,npts,output)
     
     ! let's also take the integral of the cube, since it's easy to do here
@@ -465,7 +470,7 @@ program cubcub
       end do
     end if
 
-    call write_cube_header(cub1)
+    call write_cube_header(cub1, 'manipulatecube results', 'fixed cube')
     call write_data(cub1,err,res1,npts,output)
     
     
@@ -542,17 +547,18 @@ contains
   
   ! -------------------------------------------------------------------------
   
-  subroutine write_cube_header (iu)
+  subroutine write_cube_header (iu, header1, header2)
     
     integer(KINT), intent(in) :: iu
+    character(*), intent(in) :: header1, header2
     
     character(LCHARS) :: fmt
     integer(KINT) :: ii
     
     fmt='(i5,3(f12.6))'
     !Write Header
-    write (iu,*) '1'
-    write (iu,*) 'Data Set'
+    write (iu,*) trim(header1)
+    write (iu,*) trim(header2)
     write (iu,trim(fmt)) nnuc, startp(1), startp(2), startp(3)
     write (iu,trim(fmt)) npts(1), vectr(1,1), vectr(2,1), vectr(3,1)
     write (iu,trim(fmt)) npts(2), vectr(1,2), vectr(2,2), vectr(3,2)
