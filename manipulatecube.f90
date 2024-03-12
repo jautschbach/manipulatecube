@@ -439,8 +439,9 @@ program cubcub
       order = [order(1), order(2), order(3)] )
 
     ! finally, if the step sizes in any of the directions are
-    ! negative, we can now adjust for that
-
+    ! negative, we can now fix that by reversing
+    ! the grid direction where needed:
+   
     deallocate(cubvalue1)
     allocate(cubvalue1(npts(1), npts(2), npts(3)))
     
@@ -454,6 +455,8 @@ program cubcub
       end do
     end if
 
+    cubvalue1 = output
+    
     if (vectr(2,2) < 0) then
       startp(2) = startp2(2) + vectr(2,2) * (npts(2) -1)
       vectr(2,2) = -vectr(2,2)
@@ -461,6 +464,8 @@ program cubcub
         output(:,npts(2)-i+1,:) = cubvalue1(:,i,:)
       end do
     end if
+
+    cubvalue1 = output
 
     if (vectr(3,3) < 0) then
       startp(3) = startp2(3) + vectr(3,3) * (npts(3) -1)
@@ -472,7 +477,6 @@ program cubcub
 
     call write_cube_header(cub1, 'manipulatecube results', 'fixed cube')
     call write_data(cub1,err,res1,npts,output)
-    
     
   case ('dmp')
     ! dump the data to a file to be read by some external software
