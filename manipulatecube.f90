@@ -47,7 +47,7 @@ program cubcub
   
   if ( narg .lt. 2 .or. narg .gt. 4 ) then
     stop &
-      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/dmp/fix cubfile2|factor [angle]' 
+      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/abs/dmp/fix cubfile2|factor [angle]' 
   end if
   
   call getarg(1,arg1)
@@ -65,7 +65,8 @@ program cubcub
     (math .eq. 'add') .or. (math .eq. 'sub') .or. &
     (math .eq. 'mix') .or. (math .eq. 'mul') .or. &
     (math .eq. 'fac') .or. (math .eq. 'rot') .or. &
-    (math .eq. 'dmp') .or. (math .eq. 'fix') ) then
+    (math .eq. 'dmp') .or. (math .eq. 'fix') .or. & 
+    (math .eq. 'abs') ) then
     write (out,*) 'will perform operation: ',math
   else
     stop 'arg2: unrecognized option'
@@ -110,7 +111,8 @@ program cubcub
   ! check the options and see if we need to read a second cube file.
   ! if so, read header 
   
-  if (math /= 'fac' .and. math /= 'dmp' .and. math /= 'fix') then
+  if (math /= 'fac' .and. math /= 'abs' .and. & 
+      math /= 'dmp' .and. math /= 'fix') then
     
     ios = 0
     read(arg3,*,iostat=ios) cubfile2
@@ -164,7 +166,8 @@ program cubcub
     res1 = 'results1.cube'
     res2 = 'results2.cube'
   else if (math .eq. 'fac' .or. math .eq. 'mul' & 
-    & .or. math .eq. 'add' .or. math .eq. 'sub') then
+      .or. math .eq. 'add' .or. math .eq. 'sub' & 
+      .or. math .eq. 'abs' ) then
     res1 = 'results.cube'
     res2 = ''
   else if (math .eq. 'fix') then
@@ -279,6 +282,17 @@ program cubcub
     call write_cube_header (cub2, 'manipulatecube results 2', &
       '''rotation'' of cubes')
     call write_data(cub2,err,res2,npts,output)
+
+  case ('abs')
+
+    ! take absolute value of cube data
+    write (out,*) 'Taking abolute value of cube data'
+
+    output = abs(cubvalue1)
+    
+    call write_cube_header (cub1, 'manipulatecube results', &
+      ' absolute value of cube data')
+    call write_data(cub1,err,res1,npts,output)
     
   case ('fac')
     
@@ -295,6 +309,7 @@ program cubcub
     call volume_element(vectr(:,1), vectr(:,2), vectr(:,3), dV)
     rint = sum(cubvalue1) * dV
     write (out,*) 'Volume Integral of the cube: ',rint
+    write (out,*) 'Volume element in bohr**3 is ',dV
     
     ! if the cube integral is not zero, we assume it is a density and
     ! determine what isosurface value contains what fraction of
@@ -352,6 +367,7 @@ program cubcub
 
     ! check whether the vectors have more than one sizable component,
     ! which would indicate a non-Cartesian grid:
+    write (out,*) 'Will attempt to fix non-standard grid specification'
 
     do i = 1,3
       k = 0
@@ -491,11 +507,21 @@ program cubcub
   ! all done. Clean up, and exit gracefully
   
   close (cub1, status='keep')
-  if (math.eq.'mix') close (cub2, status='keep')
+  write (out,'(/1x,a/1x,a)', advance='no')  & 
+    'If everything went well, your output cube data are now in', &
+    'file '//trim(res1)
+  if (math.eq.'mix' .or. math.eq.'rot') then
+    close (cub2, status='keep')
+    write (out,'(a/1x,a)') ' and','file '//trim(res2)
+  else
+    write (out,*)
+  end if
   
   deallocate(cubvalue1, output, nuctyp, xyznuc, qtch)
   
   if (allocated(cubvalue2)) deallocate (cubvalue2)
+
+  write (out,*)
   
   stop 'normal termination'
   

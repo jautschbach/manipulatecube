@@ -1,6 +1,6 @@
 run 
 
-../manipulatecube density.cube fac 1.0
+../manipulatecube.exe density.cube fac 1.0
 
 to see a list of isovalues and corresponding density integration threshold.
 For example, the 80% integrated density isosurface value for density.cube

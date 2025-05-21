@@ -17,13 +17,22 @@ LINKER = gfortran
 OMP = 
 
 ### Compilation/Linking options
-FOPT = -g -Wall -fbounds-check -fbacktrace -ffpe-trap=zero,overflow,underflow # gfortran 
+FOPT = -O2
+
+# Debug flags (used for 'make debug')
+# gfortran:
+FDBG = -g -fimplicit-none -fbounds-check -fbacktrace -ffpe-trap=zero,overflow,underflow -Wall
+# Intel fortran:
+# FDBG = -g -traceback -C -fpe0
 
 ### Extra libraries
 FLIB=-llapack   # use this line if you have Lapack libraries installed
 #FLIB =         # use this line if you're using source code for DLASRT
 
-FFLAGS = $(OMP)
+### Include dir(s)
+INC =
+
+FFLAGS = $(OMP) $(INC)
 
 .SUFFIXES: .f .F .F90 .f90
 
@@ -36,19 +45,23 @@ OBJ90 = types.o
 
 
 .F.o:
-	$(FC) $(FOPT) -c $< -o $@
+	$(FC) $(FOPT) $(FFLAGS) -c $< -o $@
 .F90.o: 
-	$(FC90) $(FOPT) -c $< -o $@
+	$(FC90) $(FOPT) $(FFLAGS) -c $< -o $@
 .f90.o: 
-	$(FC90) $(FOPT) -c $< -o $@
+	$(FC90) $(FOPT) $(FFLAGS) -c $< -o $@
 
 all: $(BIN)
 
 manipulatecube: $(OBJ) $(OBJ90) manipulatecube.o
-	$(LINKER) -o manipulatecube manipulatecube.o $(OBJ) $(OBJ90) $(FFLAGS) $(FLIB)
+	$(LINKER) -o $(BIN).exe manipulatecube.o $(OBJ) $(OBJ90) $(FFLAGS) $(FLIB)
 
 clean:
-	rm -f $(BIN) *.o *.mod
+	rm -f *.o *.mod
 
+realclean:
+	rm -f $(BIN).exe *.o *.mod
 
+debug: FFLAGS += $(FDBG)
+debug: all
 
