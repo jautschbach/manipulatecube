@@ -46,8 +46,25 @@ program cubcub
   narg = iargc()
   
   if ( narg .lt. 2 .or. narg .gt. 4 ) then
-    stop &
-      'Usage: ./manipulatecube cubfile1 add/sub/mix/rot/mul/fac/abs/dmp/fix cubfile2|factor [angle]' 
+    write (out,'(/17(1x,a/))') &
+      'Usage:', &
+      'manipulatecube cube1 task [[cube2|f] [a]]',&
+      '''cube1'' and ''task'' are mandatory.',&
+      'Allowed ''task'' options are',&
+      'add | sub | mix | rot | mul | fac | abs | dmp | fix',&
+      '''cube1'' and the optional ''cube2'' are cube file names (same grid!)',&
+      '''f'' is a numerical factor used with the ''fac'' option',&
+      '''a'' is an angle (deg.) used with the ''rot'' option',&
+      '''cube 2'' needed for tasks ''add'', ''sub'', ''mix'', ''rot'', ''mul''',&
+      'For task ''fac'' a numerical integration of *result* will also be done',&
+      ' (typically used with ''fac 1.0'' to check input cube integral)',&
+      'Examples: ',&
+      'manipulatecube.exe a.cube -5.0 # multiply cube by factor -5.0',&
+      'manipulatecube.exe a.cube add b.cube # add two cubes',&
+      'manipulatecube.exe a.cube mul b.cube # multiply two cubes (can be same)',&
+      'manipulatecube.exe a.cube rot b.cube 45 # ''rotate'' pair by 45 deg',&
+      'manipulatecube.exe a.cube abs # take absolute value of cube data' 
+    stop 'normal termination'
   end if
   
   call getarg(1,arg1)
@@ -307,8 +324,8 @@ program cubcub
     
     ! let's also take the integral of the cube, since it's easy to do here
     call volume_element(vectr(:,1), vectr(:,2), vectr(:,3), dV)
-    rint = sum(cubvalue1) * dV
-    write (out,*) 'Volume Integral of the cube: ',rint
+    rint = sum(output) * dV
+    write (out,*) 'Volume Integral of the *result* cube: ',rint
     write (out,*) 'Volume element in bohr**3 is ',dV
     
     ! if the cube integral is not zero, we assume it is a density and
@@ -322,7 +339,7 @@ program cubcub
       
       write(out,*) 'iso, threshold, cumulated integral'
       
-      points = reshape(cubvalue1,[ngrid])
+      points = reshape(output,[ngrid])
 
       info = 0
       call dlasrt('I', ngrid, points, info)

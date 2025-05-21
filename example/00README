@@ -9,8 +9,8 @@ is 0.002314.
 density.cube is the square of the ethene pi MO, generated with the 
 'mul' command of manipulatecube as follows:
 
-../manipulatecube ethene-pi.cube mul ethene-pi.cube
+../manipulatecube.exe ethene-pi.cube mul ethene-pi.cube
 
 If you visualize isosurfaces for ethene-pi.cube at 
-+/-0.0481 = sqrt(0.002314), the resulting isosurfaces contain 80% of the
++/-0.0481 = +/-sqrt(0.002314), the resulting isosurfaces contain 80% of the
 orbital's probability. 
